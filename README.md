@@ -1,31 +1,102 @@
 # Spanner Omni Pickleball Game 🏓
+### *Data & AI for Airgapped Systems — Code Vipassana Season 16 Project Pioneer*
 
-An interactive, visual **Pickleball Tactical Game Arena** powered by **Google Cloud Spanner Omni** (distributed ACID consistency and graph telemetry) and **Google Gemini** (tactical coaching & counter-shot calculation).
+[![Google Cloud Spanner Omni](https://img.shields.io/badge/Google_Cloud-Spanner_Omni-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/spanner)
+[![Gemini](https://img.shields.io/badge/Google-Gemini_AI-8E75B2?logo=google&logoColor=white)](https://ai.google.dev/)
+[![Flask](https://img.shields.io/badge/Python-Flask-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
----
+An interactive, visual **Pickleball Tactical Game Arena** demonstrating **On-Device Graph RAG** and distributed ACID consistency with **Google Cloud Spanner Omni** combined with **Google Gemini** for tactical coaching and real-time counter-shot prediction.
 
-## 🎮 Features
-
-- **Animated Visual Court Arena**: 2.5D visual pickleball court with animated playable characters (You vs OmniBot-3000) and realistic 60 FPS wiffle ball trajectory physics.
-- **Spanner Omni Graph Engine**: Each rally shot and counter-response logs shot nodes (`s1:Shot`, `s2:Shot`) and transition relationships (`[:TRANSITIONED_TO]`) directly in Spanner.
-- **Agentic AI Tactical Coach**: Powered by Gemini with live Spanner telemetry grounding.
-- **Web Audio API Effects**: Pure synthesized paddle hit pops, court bounce thuds, and speedup swooshes.
-- **Interactive Control Deck**: Choose from Kitchen Soft Dinks, 3rd-Shot Drops, Shoulder Speedups, and Offensive Lobs with spin control.
+Built for **Code Vipassana Season 16: Data & AI for Airgapped Systems**.
 
 ---
 
-## 🚀 Quick Start
+## 🏛️ System Architecture
 
-### 1. In Google Cloud Shell (Recommended)
+```mermaid
+graph TD
+    subgraph Client ["Client Layer"]
+        UI["2.5D Animated Court Arena (60 FPS Canvas)"]
+        Audio["Web Audio API Sound Synth Engine"]
+        Deck["Tactical Control Deck (Dinks / Drops / Lobs)"]
+    end
+
+    subgraph Backend ["Application Layer (Flask / Python)"]
+        Server["Flask Game Engine (app.py)"]
+        Physics["Trajectory & Ball Physics Engine"]
+        RAG["On-Device Graph RAG Pipeline"]
+    end
+
+    subgraph DataAI ["Data & AI Core"]
+        Spanner["Google Cloud Spanner Omni<br/>(Airgapped / Single-Server Mode)"]
+        Gemini["Google Gemini AI Coach<br/>(Grounding via Live Graph Telemetry)"]
+    end
+
+    UI -->|Shot Inputs & Angle / Spin| Server
+    Server -->|Logs Shot Nodes & [:TRANSITIONED_TO] Edges| Spanner
+    Server -->|Contextual Shot History Query| RAG
+    RAG -->|Grounding Context| Gemini
+    Gemini -->|Tactical Recommendations & OmniBot Counter| Server
+    Server -->|Realtime 60FPS Coordinates & Audio Triggers| UI
+    Audio -.-> UI
+```
+
+---
+
+## 🎮 Key Highlights & Features
+
+- **2.5D Animated Visual Court Arena**: Pure HTML5 Canvas rendering of a tournament court with 60 FPS wiffle ball trajectory physics, bounce detection, and kitchen line infractions.
+- **On-Device Spanner Omni Graph Telemetry**: 
+  - Every rally, shot, bounce, and counter-response is recorded as relational graph nodes (`s1:Shot`, `s2:Shot`) with `[:TRANSITIONED_TO]` edges in Spanner Omni.
+  - Demonstrates enterprise airgapped transactional consistency and query speed without requiring external cloud DB dependencies.
+- **Gemini Agentic Tactical Coach**:
+  - Leverages live Spanner Omni telemetry to analyze opponent shot patterns, player positioning, and error rates.
+  - Generates tactical coaching adjustments (e.g., target backhand kitchen corner, reduce attack angle).
+- **Web Audio API Effects**:
+  - Dynamic audio synthesized in real time (paddle pops, court bounce thuds, and speedup swooshes).
+- **Four Distinct Shot Categories**:
+  - Kitchen Soft Dinks, 3rd-Shot Drops, Shoulder Speedups, and Defensive Lobs.
+
+---
+
+## 📂 Project Structure
+
+```
+pickleball/
+├── app.py                  # Flask backend, Spanner transactions & Gemini AI integration
+├── requirements.txt        # Python dependencies
+├── Dockerfile              # Container definition for airgapped deployment
+├── start.sh                # Automated bootstrap script
+├── .env.example            # Environment variables template
+├── .gitignore              # Git ignore rules for safety
+├── README.md               # Architecture, features, and setup documentation
+└── templates/
+    └── index.html          # 2.5D visual animated court arena & control deck
+```
+
+---
+
+## 🚀 Quick Start Guide
+
+### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Setting up Spanner Omni
+### 2. Configure Environment
+Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
+```
+Set your `GEMINI_API_KEY` and Spanner parameters if needed.
+
+### 3. Run Spanner Omni (Docker)
 ```bash
 # Create persistent storage volume
 docker volume create spanner_omni_data
 
+# Pull Spanner Omni image
 docker pull us-docker.pkg.dev/spanner-omni/images/spanner-omni:2026.r2.1-beta
 
 # Run Spanner Omni in single-server mode
@@ -34,29 +105,16 @@ docker run -d --name spanner-omni \
   -v spanner_omni_data:/spanner \
   us-docker.pkg.dev/spanner-omni/images/spanner-omni:2026.r2.1-beta \
   start-single-server
-
-#check if it's up
-docker ps
-
-# Assuming you have cloned this repo and update the .env
-# Run the app:
-python app.py
 ```
 
-Access the visual arena.
+### 4. Launch the Game Arena
+```bash
+python app.py
+```
+Open your browser at `http://localhost:5000` (or the Google Cloud Shell Web Preview on port 5000).
 
 ---
 
-## 📂 Project Structure
-
-```
-spanner-omni-project/
-├── app.py                  # Flask backend, Spanner transactions & Gemini AI
-├── requirements.txt        # Python dependencies
-├── Dockerfile              # Container definition
-├── start.sh                # Automated bootstrap script
-├── .env                    # Environment variables (Spanner config & Gemini key)
-├── README.md               # Documentation
-└── templates/
-    └── index.html          # 2.5D visual animated court arena
-```
+## 👨‍💻 Author
+- **Snehal Ghadge**
+- Code Vipassana Season 16: *Data & AI for Airgapped Systems*
