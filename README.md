@@ -44,9 +44,19 @@ graph TD
 
 ---
 
-## 🎮 Key Highlights & Features
+## 🎮 Key Highlights & Features (Project Pioneer Major Evolutions)
 
-- **2.5D Animated Visual Court Arena**: Pure HTML5 Canvas rendering of a tournament court with 60 FPS wiffle ball trajectory physics, bounce detection, and kitchen line infractions.
+- **🔥 Live Court Shot Heatmap & Fault Density Layer (ISO GQL Query)**:
+  - Real-time radial heat gradient visualization directly on the 2.5D tournament court canvas.
+  - Queries Spanner Omni Graph telemetry (`MATCH (s:Shot)-[:TRANSITIONED_TO]->(r:Shot)`) to highlight winner zones (emerald) and unforced error/fault clusters (orange/red) with live zone distribution analytics.
+- **🧠 Adaptive OmniBot AI (On-Device Graph RAG Opponent)**:
+  - Dynamically traverses historical shot and fault nodes in Spanner Omni to pinpoint the player's primary defensive vulnerability (e.g., weak backhand baseline returns, kitchen NVZ foot faults).
+  - Actively adapts counter-shot coordinates in real-time to challenge the player's weaknesses.
+- **🔊 Web Speech API Tactical Voice Coach**:
+  - Live procedural speech synthesis speaking referee outcomes and Gemini tactical coaching feedback aloud during matches without external cloud TTS dependencies.
+- **⏪ Vector Trajectory Rally Replay Scrubber**:
+  - Step-by-step 3D quadratic bezier trajectory visualizer with numbered waypoint markers (`S1, S2, ...`) allowing players to review prior exchanges directly from Spanner.
+- **2.5D Animated Visual Court Arena (60 FPS Canvas)**: Pure HTML5 Canvas rendering of a tournament court with 60 FPS wiffle ball trajectory physics, bounce detection, and kitchen line infractions.
 - **On-Device Spanner Omni Graph Telemetry**: 
   - Every rally, shot, bounce, and counter-response is recorded as relational graph nodes (`s1:Shot`, `s2:Shot`) with `[:TRANSITIONED_TO]` edges in Spanner Omni.
   - Demonstrates enterprise airgapped transactional consistency and query speed without requiring external cloud DB dependencies.

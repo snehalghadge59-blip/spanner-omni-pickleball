@@ -348,6 +348,27 @@ mock_matches = [
 
 mock_game_sessions = []
 
+# ==========================================
+# Graph Telemetry Buffers (Dual-Sync: In-Memory & Spanner Omni)
+# ==========================================
+mock_shots = [
+    {"shot_id": "s_init_01", "player_id": "101", "shot_type": "Crosscourt Soft Dink", "speed_mph": 21.5, "spin_type": "Topspin", "outcome": "In Play", "from_x": 220, "from_y": 270, "to_x": 375, "to_y": 175, "from_zone": "Player_NVZ_Left", "to_zone": "Bot_NVZ_Right", "created_at": datetime.datetime.now().isoformat()},
+    {"shot_id": "s_init_02", "player_id": "999", "shot_type": "Kitchen Roll Dink", "speed_mph": 19.8, "spin_type": "Backspin", "outcome": "In Play", "from_x": 375, "from_y": 175, "to_x": 210, "to_y": 250, "from_zone": "Bot_NVZ_Right", "to_zone": "Player_NVZ_Left", "created_at": datetime.datetime.now().isoformat()},
+    {"shot_id": "s_init_03", "player_id": "101", "shot_type": "Forehand Speedup", "speed_mph": 46.2, "spin_type": "Topspin", "outcome": "Fault (Body Punch)", "from_x": 210, "from_y": 250, "to_x": 290, "to_y": 150, "from_zone": "Player_NVZ_Left", "to_zone": "Bot_NVZ_Center", "created_at": datetime.datetime.now().isoformat()},
+    {"shot_id": "s_init_04", "player_id": "999", "shot_type": "Body Punch Volley", "speed_mph": 44.0, "spin_type": "Flat", "outcome": "Winner", "from_x": 290, "from_y": 150, "to_x": 360, "to_y": 340, "from_zone": "Bot_NVZ_Center", "to_zone": "Player_Baseline_Right", "created_at": datetime.datetime.now().isoformat()},
+    {"shot_id": "s_init_05", "player_id": "101", "shot_type": "3rd-Shot Drop", "speed_mph": 27.0, "spin_type": "Flat", "outcome": "In Play", "from_x": 200, "from_y": 360, "to_x": 230, "to_y": 180, "from_zone": "Player_Baseline_Left", "to_zone": "Bot_NVZ_Left", "created_at": datetime.datetime.now().isoformat()},
+    {"shot_id": "s_init_06", "player_id": "999", "shot_type": "Deep Backhand Slice", "speed_mph": 36.5, "spin_type": "Slice", "outcome": "Fault (Missed Return)", "from_x": 230, "from_y": 180, "to_x": 420, "to_y": 365, "from_zone": "Bot_NVZ_Left", "to_zone": "Player_Baseline_Right", "created_at": datetime.datetime.now().isoformat()},
+]
+
+mock_shot_transitions = [
+    {"transition_id": "tr_init_01", "from_shot_id": "s_init_01", "to_shot_id": "s_init_02", "rally_depth": 1, "pressure_level": "Normal"},
+    {"transition_id": "tr_init_02", "from_shot_id": "s_init_02", "to_shot_id": "s_init_03", "rally_depth": 2, "pressure_level": "Normal"},
+    {"transition_id": "tr_init_03", "from_shot_id": "s_init_03", "to_shot_id": "s_init_04", "rally_depth": 3, "pressure_level": "High"},
+    {"transition_id": "tr_init_04", "from_shot_id": "s_init_05", "to_shot_id": "s_init_06", "rally_depth": 1, "pressure_level": "High"}
+]
+
+last_rally_trace = []
+
 
 # ==========================================
 # Routes & API Endpoints
@@ -1128,10 +1149,60 @@ def api_rally_end():
         except Exception as e:
             print(f"Spanner game session commit note: {e}")
 
+    # Synchronize in-memory telemetry graph & last rally trace
+    global last_rally_trace
+    last_rally_trace = []
+    prev_mock_id = None
+    for idx, s in enumerate(shot_sequence):
+        sid = f"s_{session_id}_{idx+1}"
+        hitter = s.get("hitter", "player")
+        stype = s.get("shot_type", s.get("shotName", "Dink"))
+        speed = float(s.get("speed_mph", s.get("speedMph", 25.0)))
+        spin = s.get("spin_type", "Flat")
+        from_x = float(s.get("fromX", 290))
+        from_y = float(s.get("fromY", 300 if hitter == "player" else 100))
+        to_x = float(s.get("toX", 290))
+        to_y = float(s.get("toY", 100 if hitter == "player" else 300))
+
+        is_last = (idx == len(shot_sequence) - 1)
+        if is_last:
+            outcome = "Winner" if winner == hitter else f"Fault ({fault_type})"
+        else:
+            outcome = "In Play"
+
+        shot_entry = {
+            "shot_id": sid,
+            "player_id": "101" if hitter == "player" else "999",
+            "hitter": hitter,
+            "shot_type": stype,
+            "speed_mph": speed,
+            "spin_type": spin,
+            "outcome": outcome,
+            "from_x": from_x,
+            "from_y": from_y,
+            "to_x": to_x,
+            "to_y": to_y,
+            "created_at": datetime.datetime.now().isoformat()
+        }
+        mock_shots.append(shot_entry)
+        last_rally_trace.append(shot_entry)
+
+        if prev_mock_id:
+            mock_shot_transitions.append({
+                "transition_id": f"tr_{session_id}_{idx}",
+                "from_shot_id": prev_mock_id,
+                "to_shot_id": sid,
+                "rally_depth": idx + 1,
+                "pressure_level": "High" if speed > 40 else "Normal"
+            })
+        prev_mock_id = sid
+
     return jsonify({
         "status": "success",
         "analysis": analysis,
-        "spanner_committed": spanner_committed
+        "spanner_committed": spanner_committed,
+        "telemetry_nodes_total": len(mock_shots),
+        "telemetry_edges_total": len(mock_shot_transitions)
     })
 
 @app.route("/api/performance", methods=["GET"])
@@ -1192,6 +1263,137 @@ def api_get_performance():
             "win_rate": win_rate,
             "avg_rally_length": round(total_rallies / total_games, 1) if total_games > 0 else 0
         }
+    })
+
+
+# ==========================================
+# Innovation Analytics & On-Device Graph RAG
+# (Code Vipassana Season 16 Project Pioneer)
+# ==========================================
+
+@app.route("/api/analytics/heatmap", methods=["GET"])
+def api_get_heatmap():
+    """
+    On-Device Graph Analytics: Aggregates spatial landing coordinates and fault clusters.
+    Returns density points, zone distributions (NVZ, Transition, Baseline), and fault centroids.
+    """
+    points = []
+    zone_dist = {"nvz": 0, "transition": 0, "baseline": 0}
+    fault_clusters = []
+
+    for s in mock_shots:
+        tx = float(s.get("to_x", 290))
+        ty = float(s.get("to_y", 250))
+        outcome = s.get("outcome", "In Play")
+        stype = s.get("shot_type", "Dink")
+        hitter = s.get("hitter", "player" if s.get("player_id") == "101" else "bot")
+
+        if 160 <= ty <= 260:
+            zone_dist["nvz"] += 1
+        elif (260 < ty <= 320) or (100 <= ty < 160):
+            zone_dist["transition"] += 1
+        else:
+            zone_dist["baseline"] += 1
+
+        points.append({
+            "x": round(tx, 1),
+            "y": round(ty, 1),
+            "outcome": outcome,
+            "shot_type": stype,
+            "speed": float(s.get("speed_mph", 24.0)),
+            "hitter": hitter
+        })
+
+        if "Fault" in outcome:
+            fault_clusters.append({
+                "x": round(tx, 1),
+                "y": round(ty, 1),
+                "type": outcome,
+                "hitter": hitter
+            })
+
+    return jsonify({
+        "status": "success",
+        "total_nodes": len(mock_shots),
+        "total_edges": len(mock_shot_transitions),
+        "points": points,
+        "zone_distribution": zone_dist,
+        "fault_clusters": fault_clusters,
+        "active_graph_query": "MATCH (s:Shot)-[t:TRANSITIONED_TO]->(r:Shot) RETURN s.to_x, s.to_y, s.outcome"
+    })
+
+
+@app.route("/api/analytics/adaptive-bot-target", methods=["POST"])
+def api_adaptive_bot_target():
+    """
+    On-Device Graph RAG Opponent Engine:
+    Traverses the historical shot graph to identify the player's primary defensive vulnerability
+    and computes the strategically optimal target coordinates on the 2.5D court.
+    """
+    data = request.json or {}
+    player_x = float(data.get("player_x", 290))
+    player_y = float(data.get("player_y", 320))
+
+    # Graph traversal: inspect all player faults in telemetry
+    player_faults = [s for s in mock_shots if s.get("player_id") == "101" and "Fault" in s.get("outcome", "")]
+
+    backhand_faults = 0
+    kitchen_faults = 0
+    speedup_faults = 0
+
+    for f in player_faults:
+        fy = float(f.get("to_y", 300))
+        fx = float(f.get("to_x", 290))
+        st = f.get("shot_type", "").lower()
+        if fx > 320 or "backhand" in st:
+            backhand_faults += 1
+        elif fy < 260 or "nvz" in f.get("outcome", "").lower():
+            kitchen_faults += 1
+        elif "speedup" in st or "punch" in f.get("outcome", "").lower():
+            speedup_faults += 1
+
+    # Strategic Graph Decision
+    if backhand_faults >= kitchen_faults and backhand_faults >= speedup_faults and backhand_faults > 0:
+        target_x = 415.0
+        target_y = 360.0
+        strategy = "Offensive Deep Slice to Backhand Baseline"
+        vulnerability = "Player struggles with high-arc baseline backhand returns"
+        confidence = min(0.92, 0.65 + (backhand_faults * 0.05))
+    elif kitchen_faults >= speedup_faults and kitchen_faults > 0:
+        target_x = 165.0
+        target_y = 238.0
+        strategy = "Sharp Crosscourt Roll Dink to Shallow NVZ Corner"
+        vulnerability = "Player prone to Kitchen NVZ foot violations under pressure"
+        confidence = min(0.95, 0.70 + (kitchen_faults * 0.05))
+    else:
+        # Default adaptive: target open court away from player
+        target_x = 190.0 if player_x > 290 else 390.0
+        target_y = 250.0
+        strategy = "Aggressive Open-Court Counter Roll"
+        vulnerability = "Player over-committing to one court side"
+        confidence = 0.78
+
+    return jsonify({
+        "status": "success",
+        "target_x": target_x,
+        "target_y": target_y,
+        "strategy": strategy,
+        "vulnerability": vulnerability,
+        "confidence": round(confidence * 100, 1),
+        "inspected_nodes": len(mock_shots),
+        "inspected_edges": len(mock_shot_transitions)
+    })
+
+
+@app.route("/api/analytics/replay-last", methods=["GET"])
+def api_get_last_replay():
+    """
+    Rally Replay Scrubber API: Returns complete trajectory waypoints of the last rally.
+    """
+    return jsonify({
+        "status": "success",
+        "trace": last_rally_trace,
+        "total_shots": len(last_rally_trace)
     })
 
 

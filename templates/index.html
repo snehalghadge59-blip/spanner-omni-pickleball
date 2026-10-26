@@ -169,6 +169,42 @@
             </div>
           </div>
 
+          <!-- Project Pioneer Innovation Bar (Heatmap, Voice Coach, Adaptive AI & Replay) -->
+          <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-900/95 border border-slate-800 rounded-xl shadow-lg">
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- Heatmap Toggle -->
+              <button onclick="toggleHeatmap()" id="btnHeatmap" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-orange-950/60 text-slate-300 hover:text-orange-400 border border-slate-700 hover:border-orange-500/60 font-semibold flex items-center gap-1.5 transition text-[11px] shadow-sm">
+                <i class="fa-solid fa-fire-flame-curved text-orange-400"></i>
+                <span id="heatmapBtnText">Shot Heatmap</span>
+                <span id="heatmapStatusDot" class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+              </button>
+
+              <!-- Voice Coach Toggle -->
+              <button onclick="toggleVoiceCoach()" id="btnVoiceCoach" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-950/60 text-slate-300 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/60 font-semibold flex items-center gap-1.5 transition text-[11px] shadow-sm">
+                <i id="voiceCoachIcon" class="fa-solid fa-volume-high text-emerald-400"></i>
+                <span id="voiceCoachBtnText">Voice Coach: ON</span>
+                <span id="voiceSpeakingDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              </button>
+
+              <!-- Rally Replay -->
+              <button onclick="replayLastRally()" id="btnReplay" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-indigo-950/60 text-slate-300 hover:text-indigo-400 border border-slate-700 hover:border-indigo-500/60 font-semibold flex items-center gap-1.5 transition text-[11px] shadow-sm">
+                <i class="fa-solid fa-backward-step text-indigo-400"></i>
+                <span>Replay Rally</span>
+              </button>
+            </div>
+
+            <!-- Adaptive OmniBot AI Segmented Control -->
+            <div class="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+              <span class="text-[10px] text-slate-400 font-mono flex items-center gap-1 mr-1">
+                <i class="fa-solid fa-brain text-indigo-400"></i> Bot:
+              </span>
+              <button onclick="setBotEngine('standard')" id="btnBotStandard" class="px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 hover:text-white transition">Standard</button>
+              <button onclick="setBotEngine('adaptive')" id="btnBotAdaptive" class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 text-white transition flex items-center gap-1 shadow-sm">
+                <span>🧠 Adaptive Graph AI</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Interactive Real-Time Shot Selector Deck -->
           <div class="space-y-2 pt-1">
             <div class="flex items-center justify-between text-xs text-slate-400 px-1">
@@ -311,6 +347,14 @@
             <div class="flex items-center justify-between text-slate-400 text-[11px]">
               <span>Graph Transition Edge:</span>
               <span class="text-amber-400 font-bold" id="edgeId">t_edge_ready...</span>
+            </div>
+            <div class="pt-1 border-t border-slate-800/80 flex items-center justify-between text-slate-400 text-[11px]">
+              <span class="flex items-center gap-1 text-rose-400"><i class="fa-solid fa-triangle-exclamation"></i> Weakness Detected:</span>
+              <span class="text-rose-300 font-semibold" id="detectedVulnerability">Backhand Baseline (64%)</span>
+            </div>
+            <div class="flex items-center justify-between text-slate-400 text-[11px]">
+              <span class="flex items-center gap-1 text-cyan-400"><i class="fa-solid fa-chart-pie"></i> Zone Telemetry:</span>
+              <span class="text-cyan-300 font-semibold" id="zoneConcentrationBadge">NVZ: 50% | Base: 35%</span>
             </div>
           </div>
         </div>
@@ -909,8 +953,12 @@
       shotHistory.push({
         hitter,
         shotName,
+        shot_type: shotName,
         speedMph,
+        speed_mph: speedMph,
+        fromX: startX,
         fromY: startY,
+        toX: targetX,
         toY: targetY
       });
 
@@ -1084,6 +1132,18 @@
       playPaddlePop(420, 'triangle');
 
       // Bot tactical selection
+      if (botEngineMode === 'adaptive' && adaptiveTargetCache && adaptiveTargetCache.target_x) {
+        botShot = adaptiveTargetCache.strategy || "Adaptive Graph Counter";
+        targetX = adaptiveTargetCache.target_x + (Math.random() - 0.5) * (profile.variance * 0.5);
+        targetY = adaptiveTargetCache.target_y + (Math.random() - 0.5) * (profile.variance * 0.5);
+        speed = 28.0;
+        flightSpeed = 0.033;
+        height = 28;
+        showPill(`OmniBot (Graph AI): ${botShot}`, "🧠");
+        launchBall('bot', botShot, bot.x, bot.y, targetX, targetY, speed, flightSpeed, height, 'drop');
+        return;
+      }
+
       let botShot = "Crosscourt Roll Dink";
       let targetX = 210 + (Math.random() - 0.5) * profile.variance;
       let targetY = 250 + (Math.random() - 0.5) * profile.variance;
@@ -1237,10 +1297,16 @@
           const log = document.getElementById("spannerLog");
           log.innerHTML += `<p class="text-emerald-400">> Spanner Omni: Committed Rally Graph (${rallyCount} nodes, Score ${playerScore}-${botScore})</p>`;
           log.scrollTop = log.scrollHeight;
+          speakVoiceCoach(data.analysis);
+          refreshAdaptiveTarget();
+          if (isHeatmapVisible) loadHeatmapData();
         }
       })
       .catch(err => {
-        document.getElementById("coachText").innerText = `Point to ${winner === 'player' ? 'You' : 'OmniBot'}. ${faultReason}. Maintain balance and stay patient at the non-volley zone line.`;
+        const fallbackText = `Point to ${winner === 'player' ? 'You' : 'OmniBot'}. ${faultReason}. Maintain balance and stay patient at the non-volley zone line.`;
+        document.getElementById("coachText").innerText = fallbackText;
+        speakVoiceCoach(fallbackText);
+        refreshAdaptiveTarget();
       });
     }
 
@@ -1294,6 +1360,79 @@
       ctx.font = "bold 10px JetBrains Mono";
       ctx.textAlign = "center";
       ctx.fillText("7FT NON-VOLLEY ZONE (NVZ)", 290, 214);
+
+      // ==========================================
+      // Project Pioneer Feature: Shot Heatmap Layer
+      // ==========================================
+      if (isHeatmapVisible && heatmapData && heatmapData.points) {
+        ctx.save();
+        heatmapData.points.forEach(pt => {
+          const isFault = pt.outcome && pt.outcome.includes("Fault");
+          const isWinner = pt.outcome && pt.outcome.includes("Winner");
+          const radius = isFault ? 26 : (isWinner ? 22 : 16);
+          const radGrad = ctx.createRadialGradient(pt.x, pt.y, 2, pt.x, pt.y, radius);
+
+          if (isFault) {
+            radGrad.addColorStop(0, "rgba(239, 68, 68, 0.75)"); // Red fault
+            radGrad.addColorStop(0.5, "rgba(249, 115, 22, 0.35)");
+            radGrad.addColorStop(1, "rgba(239, 68, 68, 0)");
+          } else if (isWinner) {
+            radGrad.addColorStop(0, "rgba(16, 185, 129, 0.85)"); // Emerald winner
+            radGrad.addColorStop(0.5, "rgba(6, 182, 212, 0.4)");
+            radGrad.addColorStop(1, "rgba(16, 185, 129, 0)");
+          } else {
+            radGrad.addColorStop(0, "rgba(59, 130, 246, 0.65)"); // Cyan/blue in-play
+            radGrad.addColorStop(0.5, "rgba(99, 102, 241, 0.3)");
+            radGrad.addColorStop(1, "rgba(59, 130, 246, 0)");
+          }
+
+          ctx.fillStyle = radGrad;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Center coordinate ping
+          ctx.fillStyle = isFault ? "#f87171" : (isWinner ? "#34d399" : "#60a5fa");
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        // Heatmap HUD label on court
+        ctx.fillStyle = "rgba(249, 115, 22, 0.9)";
+        ctx.font = "bold 9px JetBrains Mono";
+        ctx.fillText(`🔥 LIVE HEATMAP (${heatmapData.points.length} SHOTS • ${heatmapData.fault_clusters.length} FAULT CLUSTERS)`, 290, 52);
+        ctx.restore();
+      }
+
+      // ==========================================
+      // Project Pioneer Feature: Replay Vector Trace
+      // ==========================================
+      if (isReplayingRally && lastReplayTrace && lastReplayTrace.length > 0) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(250, 204, 21, 0.9)";
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        lastReplayTrace.forEach((s, idx) => {
+          if (idx === 0) ctx.moveTo(s.from_x, s.from_y);
+          ctx.quadraticCurveTo((s.from_x + s.to_x)/2, (s.from_y + s.to_y)/2 - 30, s.to_x, s.to_y);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Waypoint markers
+        lastReplayTrace.forEach((s, idx) => {
+          ctx.fillStyle = s.hitter === 'player' ? "#10b981" : "#818cf8";
+          ctx.beginPath();
+          ctx.arc(s.to_x, s.to_y, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 8px JetBrains Mono";
+          ctx.fillText(`S${idx+1}`, s.to_x, s.to_y - 6);
+        });
+        ctx.restore();
+      }
 
       // Net Shadow & Mesh
       ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
@@ -1777,8 +1916,148 @@
       });
     }
 
+    // ==========================================
+    // Project Pioneer Innovation Functions
+    // ==========================================
+    let isHeatmapVisible = false;
+    let heatmapData = null;
+    let isVoiceCoachEnabled = true;
+    let botEngineMode = 'adaptive';
+    let adaptiveTargetCache = null;
+    let isReplayingRally = false;
+    let lastReplayTrace = [];
+    let replayTimer = null;
+
+    function toggleHeatmap() {
+      isHeatmapVisible = !isHeatmapVisible;
+      const btn = document.getElementById("btnHeatmap");
+      const dot = document.getElementById("heatmapStatusDot");
+      const text = document.getElementById("heatmapBtnText");
+      if (isHeatmapVisible) {
+        btn.classList.add("bg-orange-500/20", "border-orange-500", "text-orange-300");
+        dot.className = "w-1.5 h-1.5 rounded-full bg-orange-400 animate-ping";
+        text.innerText = "Heatmap: ON";
+        showPill("Live ISO GQL Court Heatmap Active", "🔥");
+        loadHeatmapData();
+      } else {
+        btn.classList.remove("bg-orange-500/20", "border-orange-500", "text-orange-300");
+        dot.className = "w-1.5 h-1.5 rounded-full bg-slate-500";
+        text.innerText = "Shot Heatmap";
+        showPill("Shot Heatmap Hidden", "👁️");
+      }
+    }
+
+    function loadHeatmapData() {
+      fetch("/api/analytics/heatmap")
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.points) {
+            heatmapData = data;
+            const total = (data.zone_distribution.nvz + data.zone_distribution.transition + data.zone_distribution.baseline) || 1;
+            const nvzPct = Math.round((data.zone_distribution.nvz / total) * 100);
+            const basePct = Math.round((data.zone_distribution.baseline / total) * 100);
+            const badge = document.getElementById("zoneConcentrationBadge");
+            if (badge) badge.innerText = `NVZ: ${nvzPct}% | Base: ${basePct}%`;
+          }
+        })
+        .catch(err => console.log("Heatmap load note:", err));
+    }
+
+    function toggleVoiceCoach() {
+      isVoiceCoachEnabled = !isVoiceCoachEnabled;
+      const icon = document.getElementById("voiceCoachIcon");
+      const text = document.getElementById("voiceCoachBtnText");
+      const dot = document.getElementById("voiceSpeakingDot");
+      if (isVoiceCoachEnabled) {
+        icon.className = "fa-solid fa-volume-high text-emerald-400";
+        text.innerText = "Voice Coach: ON";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse";
+        speakVoiceCoach("Voice AI tactical coach activated.");
+        showPill("Voice Coach Enabled (Web Speech API)", "🔊");
+      } else {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        icon.className = "fa-solid fa-volume-xmark text-slate-500";
+        text.innerText = "Voice Coach: OFF";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-slate-600";
+        showPill("Voice Coach Muted", "🔇");
+      }
+    }
+
+    function speakVoiceCoach(text) {
+      if (!isVoiceCoachEnabled || !('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.cancel();
+        const clean = text.replace(/[*_#`]/g, '').replace(/[\u{1F300}-\u{1F9FF}]/gu, '');
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.rate = 1.05;
+        utter.pitch = 1.0;
+        const voices = window.speechSynthesis.getVoices();
+        const engVoice = voices.find(v => v.lang && v.lang.startsWith("en"));
+        if (engVoice) utter.voice = engVoice;
+        window.speechSynthesis.speak(utter);
+      } catch (e) {
+        console.log("Voice coach note:", e);
+      }
+    }
+
+    function setBotEngine(mode) {
+      botEngineMode = mode;
+      const btnStd = document.getElementById("btnBotStandard");
+      const btnAdp = document.getElementById("btnBotAdaptive");
+      if (mode === 'adaptive') {
+        btnAdp.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 text-white transition flex items-center gap-1 shadow-sm";
+        btnStd.className = "px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 hover:text-white transition";
+        showPill("OmniBot: Adaptive Graph Memory Mode", "🧠");
+        refreshAdaptiveTarget();
+      } else {
+        btnStd.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 text-white transition";
+        btnAdp.className = "px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 hover:text-white transition flex items-center gap-1";
+        showPill("OmniBot: Standard DUPR Mode", "🤖");
+      }
+    }
+
+    function refreshAdaptiveTarget() {
+      fetch("/api/analytics/adaptive-bot-target", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player_x: player.x, player_y: player.y })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.status === "success") {
+          adaptiveTargetCache = data;
+          const vulnElem = document.getElementById("detectedVulnerability");
+          if (vulnElem) vulnElem.innerText = data.vulnerability.length > 25 ? data.vulnerability.substring(0, 24) + '...' : data.vulnerability;
+          const botStrat = document.getElementById("botShotVal");
+          if (botStrat && botEngineMode === 'adaptive') botStrat.innerText = data.strategy.substring(0, 22);
+        }
+      })
+      .catch(err => console.log("Adaptive target note:", err));
+    }
+
+    function replayLastRally() {
+      fetch("/api/analytics/replay-last")
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.trace && data.trace.length > 0) {
+            lastReplayTrace = data.trace;
+            isReplayingRally = true;
+            showPill(`Replaying Last Rally (${data.trace.length} shots)`, "⏪");
+            if (replayTimer) clearTimeout(replayTimer);
+            replayTimer = setTimeout(() => {
+              isReplayingRally = false;
+            }, 4500);
+          } else {
+            showPill("Play a rally first to record replay trace!", "⚠️");
+          }
+        })
+        .catch(err => console.log("Replay note:", err));
+    }
+
     window.addEventListener("DOMContentLoaded", () => {
       renderCourt();
+      loadHeatmapData();
+      refreshAdaptiveTarget();
       const today = new Date().toISOString().split('T')[0];
       const bookDateInput = document.getElementById("bookDate");
       if (bookDateInput) bookDateInput.value = today;
