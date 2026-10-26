@@ -22,6 +22,8 @@ Building upon the initial Code Vipassana Session 3 codelab (*"Data Agents & Grap
 
 ## 2. System Architecture & Component Interaction
 
+![Spanner Omni Pickleball System Architecture](architecture_diagram.png)
+
 ```mermaid
 graph TD
     subgraph Client ["Client Layer (HTML5 Canvas & Web APIs)"]

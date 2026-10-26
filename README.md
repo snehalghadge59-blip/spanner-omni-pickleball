@@ -14,6 +14,8 @@ Built for **Code Vipassana Season 16: Data & AI for Airgapped Systems**.
 
 ## 🏛️ System Architecture
 
+![Spanner Omni Pickleball System Architecture](architecture_diagram.png)
+
 ```mermaid
 graph TD
     subgraph Client ["Client Layer"]
