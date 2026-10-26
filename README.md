@@ -33,12 +33,12 @@ graph TD
         Gemini["Google Gemini AI Coach<br/>(Grounding via Live Graph Telemetry)"]
     end
 
-    UI -->|Shot Inputs & Angle / Spin| Server
-    Server -->|Logs Shot Nodes & [:TRANSITIONED_TO] Edges| Spanner
-    Server -->|Contextual Shot History Query| RAG
-    RAG -->|Grounding Context| Gemini
-    Gemini -->|Tactical Recommendations & OmniBot Counter| Server
-    Server -->|Realtime 60FPS Coordinates & Audio Triggers| UI
+    UI -->|"Shot Inputs and Angle / Spin"| Server
+    Server -->|"Logs Shot Nodes and TRANSITIONED_TO Edges"| Spanner
+    Server -->|"Contextual Shot History Query"| RAG
+    RAG -->|"Grounding Context"| Gemini
+    Gemini -->|"Tactical Recommendations and OmniBot Counter"| Server
+    Server -->|"Realtime 60FPS Coordinates and Audio Triggers"| UI
     Audio -.-> UI
 ```
 
